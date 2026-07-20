@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Streaming Media System Summary</title>
+<style>
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    max-width:1000px;
+    margin:auto;
+    padding:30px;
+    line-height:1.6;
+    color:#222;
+}
+h1,h2{
+    color:#0b5394;
+}
+table{
+    border-collapse:collapse;
+    width:100%;
+    margin:15px 0;
+}
+table,th,td{
+    border:1px solid #999;
+}
+th,td{
+    padding:8px;
+}
+code{
+    background:#f2f2f2;
+    padding:2px 5px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Reliable Streaming Media Transport</h1>
+
+<p>
+This project implements a reliable real-time media transport protocol over UDP.
+The objective is to minimize playback deadline misses while remaining below the
+2× bandwidth overhead limit. The final implementation combines systematic
+Forward Error Correction (FEC), a playout buffer, duplicate suppression, and
+deadline-driven scheduling.
+</p>
+
+<h2>Architecture</h2>
+
+<ul>
+<li>The sender receives media frames from the harness.</li>
+<li>Frames are divided into FEC blocks containing four source frames.</li>
+<li>Three parity shards are generated for every block.</li>
+<li>Both source and parity shards are transmitted through the relay.</li>
+<li>The receiver reconstructs missing frames whenever any four of the seven shards arrive.</li>
+<li>Recovered frames are inserted into the playout buffer before playback.</li>
+</ul>
+
+<h2>Packet Format</h2>
+
+<table>
+<tr><th>Field</th><th>Size</th></tr>
+<tr><td>block_start_seq</td><td>4 bytes</td></tr>
+<tr><td>shard_index</td><td>1 byte</td></tr>
+<tr><td>data_shards</td><td>1 byte</td></tr>
+<tr><td>parity_shards</td><td>1 byte</td></tr>
+<tr><td>flags</td><td>1 byte</td></tr>
+<tr><td>Payload</td><td>160 bytes</td></tr>
+</table>
+
+<h2>Sender Design</h2>
+
+<ul>
+<li>Receives 164-byte harness packets.</li>
+<li>Immediately forwards each source shard.</li>
+<li>Groups every four frames into one FEC block.</li>
+<li>Generates three parity shards using GF(2<sup>8</sup>) arithmetic.</li>
+<li>Serializes packets using network byte order.</li>
+</ul>
+
+<h2>Receiver Design</h2>
+
+<ul>
+<li>Parses incoming wire packets.</li>
+<li>Stores shards in a fixed-size FEC block ring.</li>
+<li>Performs matrix inversion over GF(2<sup>8</sup>) when enough shards are available.</li>
+<li>Places recovered frames into a 512-slot playout buffer.</li>
+<li>Delivers frames strictly according to playback deadlines.</li>
+<li>Ignores duplicate packets.</li>
+</ul>
+
+<h2>Design Decisions</h2>
+
+<ul>
+<li>Systematic FEC minimizes latency because original packets can be played immediately.</li>
+<li>Static buffers provide deterministic memory usage.</li>
+<li>Single-threaded event loop simplifies synchronization.</li>
+<li>No retransmissions are used because playback deadlines make round-trip recovery impractical.</li>
+<li>Network byte-order serialization ensures portability.</li>
+</ul>
+
+<h2>Complexity</h2>
+
+<table>
+<tr><th>Operation</th><th>Complexity</th></tr>
+<tr><td>Encoding</td><td>O(3 × 4 × 160)</td></tr>
+<tr><td>Decoding</td><td>O(k³) matrix inversion + O(4 × 4 × 160)</td></tr>
+<tr><td>Memory</td><td>Fixed-size static buffers</td></tr>
+</table>
+
+<h2>Experimental Results</h2>
+
+<table>
+<tr>
+<th>Profile</th>
+<th>Delay</th>
+<th>Miss %</th>
+<th>Bandwidth</th>
+<th>Result</th>
+</tr>
+
+<tr>
+<td>A</td>
+<td>200 ms</td>
+<td>0.00%</td>
+<td>1.84×</td>
+<td>VALID</td>
+</tr>
+
+<tr>
+<td>B</td>
+<td>200 ms</td>
+<td>0.13%</td>
+<td>1.84×</td>
+<td>VALID</td>
+</tr>
+
+<tr>
+<td>B</td>
+<td>140 ms</td>
+<td>0.20%</td>
+<td>1.84×</td>
+<td>VALID</td>
+</tr>
+
+<tr>
+<td><b>B (Final)</b></td>
+<td><b>120 ms</b></td>
+<td><b>0.73%</b></td>
+<td><b>1.84×</b></td>
+<td><b>VALID</b></td>
+</tr>
+
+</table>
+
+<h2>Conclusion</h2>
+
+<p>
+The final implementation satisfies the assignment constraints by combining
+systematic Forward Error Correction, deterministic buffering, and deadline-aware
+playout scheduling. The final submission uses a grading delay of
+<strong>120 ms</strong>, achieves <strong>1.84×</strong> bandwidth overhead,
+and remains below the allowed deadline-miss threshold on the provided test
+profiles.
+</p>
+
+</body>
+</html>
